@@ -1,0 +1,78 @@
+{
+    "name": "@particle-academy/fancy-sockets",
+    "version": "0.1.0",
+    "description": "Pusher-protocol WebSockets server for Node: many apps in one process, added, changed or removed at runtime; server-stamped presence senders; bounded limits; and a one-command test server for CI. Works with pusher-js, Laravel Echo and Laravel's HTTP broadcaster.",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Particle-Academy/fancy-sockets.git"
+    },
+    "homepage": "https://github.com/Particle-Academy/fancy-sockets#readme",
+    "bugs": "https://github.com/Particle-Academy/fancy-sockets/issues",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "bin": {
+        "fancy-sockets": "./dist/cli.js"
+    },
+    "exports": {
+        ".": {
+            "import": {
+                "types": "./dist/index.d.ts",
+                "default": "./dist/index.js"
+            },
+            "require": {
+                "types": "./dist/index.d.cts",
+                "default": "./dist/index.cjs"
+            }
+        },
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsup",
+        "dev": "tsup --watch",
+        "lint": "tsc --noEmit",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "prepublishOnly": "tsup",
+        "smoke": "node scripts/smoke.mjs",
+        "sabotage": "node scripts/sabotage.mjs"
+    },
+    "keywords": [
+        "websocket",
+        "pusher",
+        "pusher-protocol",
+        "laravel-echo",
+        "broadcasting",
+        "presence",
+        "realtime",
+        "fancy"
+    ],
+    "dependencies": {
+        "ws": "^8.23.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22",
+        "laravel-echo": "^2.6.3",
+        "pusher-js": "^8.6.0",
+        "tsup": "^8.5.0",
+        "typescript": "^5.8.0",
+        "vitest": "^5.0.3"
+    },
+    "overrides": {
+        "esbuild": "^0.28.1"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "license": "MIT"
+}
