@@ -175,6 +175,18 @@ describe('client events', () => {
         }
     });
 
+    it('are refused from a socket not subscribed to a channel others are on', async () => {
+        const t = await server({ app: { clientEvents: true } });
+        const member = await raw(rawUrl(t));
+        member.send({ event: 'pusher:subscribe', data: { channel: 'private-room', auth: sign(t.app.secret, t.app.key, member.socketId(), 'private-room') } });
+        await member.next('pusher_internal:subscription_succeeded');
+        const outsider = await raw(rawUrl(t));
+        outsider.send({ event: 'client-x', channel: 'private-room', data: 'injected' });
+        expect((await outsider.next('pusher:error')).data).toMatchObject({ code: 4009 });
+        await sleep(100);
+        expect(member.frames.some((f) => f.event === 'client-x')).toBe(false);
+    });
+
     it('are rate-limited per socket (4301)', async () => {
         const t = await server({ app: { clientEvents: true, limits: { clientEventsPerSecond: 3 } } });
         const a = await presence(t, 'presence-d', 'a');
