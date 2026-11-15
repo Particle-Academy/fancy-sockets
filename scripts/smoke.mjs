@@ -4,7 +4,6 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import WebSocket from 'ws';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
@@ -13,15 +12,16 @@ function established(url) {
     return new Promise((resolve, reject) => {
         const ws = new WebSocket(url);
         const timer = setTimeout(() => reject(new Error(`no connection_established from ${url}`)), 5000);
-        ws.on('message', (data) => {
-            const frame = JSON.parse(data.toString());
+        // Node 22's own WebSocket client (undici): no client dependency.
+        ws.addEventListener('message', ({ data }) => {
+            const frame = JSON.parse(String(data));
             if (frame.event === 'pusher:connection_established') {
                 clearTimeout(timer);
                 ws.close();
                 resolve(JSON.parse(frame.data).socket_id);
             }
         });
-        ws.on('error', reject);
+        ws.addEventListener('error', () => reject(new Error(`WebSocket error on ${url}`)));
     });
 }
 

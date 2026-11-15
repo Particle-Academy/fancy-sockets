@@ -5,8 +5,7 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server as HttpServer, type ServerResponse } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import type { AddressInfo } from 'node:net';
-import type { Duplex } from 'node:stream';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { type WebSocketConnection, attachWebSocketServer } from '@particle-academy/fancy-ws';
 import {
     type AppConfig,
     type GlobalLimits,
@@ -151,16 +150,23 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
         hub.close(socket, code, message);
     };
 
-    const wss = new WebSocketServer({
-        noServer: true,
-        maxPayload: limits.maxMessageBytes,
-        perMessageDeflate: false,
-        clientTracking: false,
-        autoPong: true,
-    });
-
-    const onConnection = (ws: WebSocket, app: AppState | undefined, code: number | null, reason: string): void => {
+    const onConnection = (ws: WebSocketConnection, app: AppState | undefined, initialCode: number | null, initialReason: string): void => {
         ws.on('error', () => {});
+        let code = initialCode;
+        let reason = initialReason;
+        // Re-checked here: `verify` and this listener are an await apart, so
+        // several handshakes can pass the cheap pre-checks together.
+        if (code === null && app !== undefined) {
+            if (sockets.size >= limits.maxConnections) {
+                refuse('connect.capacity');
+                code = CODES.overCapacity;
+                reason = 'Server is over capacity.';
+            } else if (app.sockets.size >= app.config.limits.maxConnections) {
+                refuse('connect.quota');
+                code = CODES.overQuota;
+                reason = 'App is over its connection quota.';
+            }
+        }
         if (app === undefined || code !== null) {
             // Refusals are delivered in-protocol, so pusher-js reads the code and
             // knows whether to reconnect. The socket is cut if it lingers.
@@ -179,19 +185,21 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
         sockets.set(id, socket);
         app.sockets.add(socket);
 
-        ws.on('message', (data: Buffer, isBinary: boolean) => {
+        ws.on('message', (data: string | Buffer, isBinary: boolean) => {
             socket.lastSeen = performance.now();
             socket.pingSentAt = null;
             counters.messagesIn += 1;
             if (socket.closing) {
                 return;
             }
-            if (isBinary) {
+            if (isBinary || typeof data !== 'string') {
                 refuse('message.binary');
                 hub.close(socket, CODES.unsupportedData, 'Binary messages are not supported.');
                 return;
             }
-            if (data.length > socket.app.config.limits.maxMessageBytes) {
+            // fancy-ws has already decoded and UTF-8-validated the text, under
+            // the process-wide frame cap; this is the app's own, smaller one.
+            if (Buffer.byteLength(data, 'utf8') > socket.app.config.limits.maxMessageBytes) {
                 refuse('message.size');
                 hub.close(socket, CODES.messageTooBig, 'Message too big.');
                 return;
@@ -202,7 +210,7 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
                 return;
             }
             try {
-                handleMessage(hub, socket, data.toString('utf8'));
+                handleMessage(hub, socket, data);
             } catch (err) {
                 log({ type: 'error', where: 'message', message: (err as Error).message });
                 hub.close(socket, 4200, 'Internal error.');
@@ -215,40 +223,42 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
         ws.send(establishedFrame(id, activityTimeout));
     };
 
-    const upgrade = (req: IncomingMessage, raw: Duplex, head: Buffer): void => {
-        raw.on('error', () => raw.destroy());
-        const reject = (status: number, text: string): void => {
+    /**
+     * fancy-ws's `verify`, run BEFORE the 101. A number refuses at the
+     * handshake with that HTTP status; an object accepts and reaches
+     * `onConnection`. Only what costs nothing to refuse is refused here (the
+     * process-wide cap, a wrong path): a missing or disabled app is accepted and
+     * closed with its Pusher code, because pusher-js decides whether to
+     * reconnect from that code and treats an HTTP refusal as "retry forever".
+     */
+    const verify = (req: IncomingMessage): number | { app: AppState | undefined; code: number | null; reason: string } => {
+        const reject = (status: number): number => {
             refuse(`upgrade.${status}`);
-            raw.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
+            return status;
         };
         if (stopping) {
-            reject(503, 'Service Unavailable');
-            return;
+            return reject(503);
         }
         // The process-wide cap is checked before the handshake, so a flood of
         // connections costs a status line each, not a WebSocket.
         if (sockets.size >= limits.maxConnections) {
-            reject(503, 'Service Unavailable');
-            return;
+            return reject(503);
         }
         let url: URL;
         try {
             url = new URL(req.url ?? '/', 'http://localhost');
         } catch {
-            reject(400, 'Bad Request');
-            return;
+            return reject(400);
         }
         const match = /^\/app\/([^/]+)$/.exec(url.pathname);
         if (match === null) {
-            reject(404, 'Not Found');
-            return;
+            return reject(404);
         }
         let key: string;
         try {
             key = decodeURIComponent(match[1]!);
         } catch {
-            reject(400, 'Bad Request');
-            return;
+            return reject(400);
         }
         const app = byKey.get(key);
         let code: number | null = null;
@@ -270,17 +280,10 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
             refuse('connect.origin');
             code = CODES.unauthorized;
             reason = 'Origin not allowed.';
-        } else if (app.sockets.size >= app.config.limits.maxConnections) {
-            refuse('connect.quota');
-            code = CODES.overQuota;
-            reason = 'App is over its connection quota.';
         }
-        try {
-            wss.handleUpgrade(req, raw, head, (ws) => onConnection(ws, app, code, reason));
-        } catch (err) {
-            log({ type: 'error', where: 'upgrade', message: (err as Error).message });
-            raw.destroy();
-        }
+        // The per-app quota is checked once the socket is ours (onConnection),
+        // where it cannot race another handshake.
+        return { app, code, reason };
     };
 
     const request = (req: IncomingMessage, res: ServerResponse): void => {
@@ -352,7 +355,19 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
     http.headersTimeout = limits.headersTimeoutMs;
     http.requestTimeout = limits.requestTimeoutMs;
     http.keepAliveTimeout = 5000;
-    http.on('upgrade', upgrade);
+    // RFC 6455 framing is fancy-ws (first-party, zero dependencies). Every
+    // upgrade on this listener is ours, so there is no `path`: `verify` routes.
+    const wss = attachWebSocketServer(http, {
+        verify,
+        maxPayload: limits.maxMessageBytes,
+        maxFragments: limits.maxFragments,
+        closeTimeoutMs: 5000,
+    });
+    wss.on('error', (err) => log({ type: 'error', where: 'upgrade', message: err.message }));
+    wss.on('connection', (ws, _req, verified) => {
+        const v = verified as { app?: AppState; code?: number | null; reason?: string };
+        onConnection(ws, v.app, v.code ?? null, v.reason ?? '');
+    });
     http.on('clientError', (err: NodeJS.ErrnoException, raw) => {
         const timeout = err.code === 'ERR_HTTP_REQUEST_TIMEOUT';
         if (timeout) {
@@ -518,7 +533,7 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
                 deadline.unref();
                 closed.then(() => {
                     clearTimeout(deadline);
-                    wss.close();
+                    wss.detach();
                     resolve();
                 });
                 // A server with no sockets left closes as soon as idle HTTP ends.

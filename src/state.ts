@@ -2,7 +2,7 @@
  * Per-app runtime state: its sockets and its channels. Every app owns its own
  * maps, so no lookup can cross from one app into another.
  */
-import type { WebSocket } from 'ws';
+import type { WebSocketConnection } from '@particle-academy/fancy-ws';
 import type { ResolvedApp } from './config.js';
 import { type ChannelType, RateLimiter, channelType } from './protocol.js';
 
@@ -23,7 +23,7 @@ export class Socket {
 
     constructor(
         readonly id: string,
-        readonly ws: WebSocket,
+        readonly ws: WebSocketConnection,
         public app: AppState,
     ) {
         this.messages = new RateLimiter(app.config.limits.messagesPerSecond);

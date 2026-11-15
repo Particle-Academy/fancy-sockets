@@ -82,6 +82,8 @@ export interface GlobalLimits {
     maxConnections: number;
     /** Hard cap on one WebSocket message for every app (the framing layer's limit). Default 65536. */
     maxMessageBytes: number;
+    /** Frames one WebSocket message may be split into (fancy-ws). Over closes 1009. Default 64. */
+    maxFragments: number;
     /** Bytes of an HTTP API request body. Default 102400. */
     maxBodyBytes: number;
     /** Time to receive a request's headers, including a WebSocket upgrade. Default 10000 ms. */
@@ -93,6 +95,9 @@ export interface GlobalLimits {
 export const DEFAULT_GLOBAL_LIMITS: Readonly<GlobalLimits> = Object.freeze({
     maxConnections: 10_000,
     maxMessageBytes: 65_536,
+    // Pusher clients send each message in one frame; 64 leaves room for a
+    // client that fragments while keeping empty-fragment floods short.
+    maxFragments: 64,
     maxBodyBytes: 102_400,
     headersTimeoutMs: 10_000,
     requestTimeoutMs: 15_000,

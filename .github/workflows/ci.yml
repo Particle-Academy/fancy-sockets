@@ -95,6 +95,12 @@ jobs:
         with:
           node-version: "22"
 
+      # BRIDGE until fancy-ws 0.2.0 is on npm: package-lock.json resolves it
+      # to a tarball built from a pinned commit (fancy-ws-candidate.json).
+      # Delete this step with the bridge.
+      - name: Build the fancy-ws candidate
+        run: node scripts/fancy-ws-candidate.mjs
+
       - name: Install
         run: npm ci --no-audit --no-fund
 
@@ -140,6 +146,12 @@ jobs:
         with:
           node-version: "22"
 
+      # BRIDGE until fancy-ws 0.2.0 is on npm: package-lock.json resolves it
+      # to a tarball built from a pinned commit (fancy-ws-candidate.json).
+      # Delete this step with the bridge.
+      - name: Build the fancy-ws candidate
+        run: node scripts/fancy-ws-candidate.mjs
+
       - name: Install
         run: npm ci --no-audit --no-fund
 
@@ -163,6 +175,12 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
+
+      # BRIDGE until fancy-ws 0.2.0 is on npm: package-lock.json resolves it
+      # to a tarball built from a pinned commit (fancy-ws-candidate.json).
+      # Delete this step with the bridge.
+      - name: Build the fancy-ws candidate
+        run: node scripts/fancy-ws-candidate.mjs
 
       - name: Install and build
         run: npm ci --no-audit --no-fund && npx tsup

@@ -9,7 +9,8 @@ envelope's `RULES.md` and must never be copied here.
 ## What this package is
 
 A Pusher-protocol WebSockets server for Node 22+: many apps in one process,
-changed at runtime. `ws` does RFC 6455 framing and nothing else; everything
+changed at runtime. `@particle-academy/fancy-ws` (first-party, zero dependencies) does RFC 6455
+framing and nothing else; everything
 protocol-level is ours.
 
 ## Layout
@@ -24,7 +25,6 @@ protocol-level is ours.
 | `src/server.ts` | The listener, the upgrade path, the idle sweep, runtime apps, graceful stop. |
 | `src/cert.ts` | Self-signed certificates, hand-encoded DER over node:crypto. |
 | `src/cli-main.ts` / `src/cli.ts` | The CLI as a testable function, and its thin bin. |
-| `src/ws.d.ts` | The slice of `ws` we use, declared locally instead of taking `@types/ws`. |
 
 ## Invariants (each has a test, and a sabotage entry that proves it)
 
@@ -55,6 +55,11 @@ protocol-level is ours.
   cap refuses at the handshake (503), where a flood costs a status line.
 
 ## Tests
+
+Raw-protocol tests use `test/ws-client.ts`, a small RFC 6455 client of our
+own over node:net/tls. It does not share fancy-ws's frame codec, so the server
+is not checked against itself, and it can send an `Origin`, take a CA and see
+the HTTP status of a refused handshake, which Node's `WebSocket` global cannot.
 
 `npm test` (vitest). `test/php-publisher.test.ts` drives fancy-cowork-php's
 own publisher through `php`; it needs a fancy-cowork-php checkout with

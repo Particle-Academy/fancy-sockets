@@ -28,8 +28,14 @@ version number is not a stability promise until 1.0; read the entry.
   - `startTestServer()`, a CLI (`fancy-sockets --app id:key:secret --port 0`)
     that prints its bound port as JSON, `--watch` to reload apps from a config
     file, and `createSelfSignedCert()` for wss in CI, with node:crypto only.
-- **Runtime dependency `ws`** (`^8.23.0`, MIT, 0 dependencies), owner-approved
-  for WebSocket framing only.
+- **Runtime dependency `@particle-academy/fancy-ws`** (`>=0.2.0 <2.0`,
+  first-party, zero dependencies) for RFC 6455 framing only. It replaced `ws`
+  before the first release: handshakes are authorised in fancy-ws's `verify`
+  before the 101, a message may be split into at most `maxFragments` frames
+  (new global limit, default 64; over closes 1009), and the per-app connection
+  quota is re-checked once the socket is accepted, so concurrent handshakes
+  cannot overshoot it. The suite's raw client is our own (`test/ws-client.ts`)
+  and the smoke scripts use Node's `WebSocket` global, so nothing installs `ws`.
 - **Test dependencies `pusher-js` and `laravel-echo`**, under the framework
   test carve-out: the conformance suite drives the real clients Laravel apps
   ship. They are devDependencies and never reach a consumer.

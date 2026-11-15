@@ -55,6 +55,17 @@ describe('frames and messages', () => {
         expect((await r.closed).code).toBe(1009);
     });
 
+    it('closes 1009 on a message split into more fragments than maxFragments', async () => {
+        const s = await start({ port: 0, limits: { maxFragments: 4 }, apps: [{ id: 'a', key: 'ka', secret: 'secret-aaaa' }] });
+        stops.push(() => s.stop({ timeoutMs: 500 }));
+        const within = await raw(`${s.wsUrl}/app/ka?protocol=7`);
+        within.ws.sendFragments(['{"event":"pu', 'sher:ping",', '"data":{}}']);
+        await within.next('pusher:pong');
+        const over = await raw(`${s.wsUrl}/app/ka?protocol=7`);
+        over.ws.sendFragments(['{"event":"pusher:ping","data":{}}', ...Array.from({ length: 9 }, () => '')]);
+        expect((await over.closed).code).toBe(1009);
+    });
+
     it('answers malformed JSON with an error and stays up', async () => {
         const t = await server();
         const r = await raw(rawUrl(t));
@@ -441,6 +452,29 @@ describe('floods and caps', () => {
         stops.push(() => s.stop({ timeoutMs: 500 }));
         await raw(`${s.wsUrl}/app/ka?protocol=7`);
         await expect(raw(`${s.wsUrl}/app/ka?protocol=7`)).rejects.toThrow(/503/);
+    });
+
+    it('holds both connection caps when many handshakes arrive at once', async () => {
+        // The handshake check and the accepted socket are an await apart, so a
+        // burst can pass the pre-check together; the accepted side re-checks.
+        const s = await start({
+            port: 0,
+            limits: { maxConnections: 3 },
+            apps: [
+                { id: 'a', key: 'key-a', secret: 'secret-aaaa', limits: { maxConnections: 2 } },
+                { id: 'b', key: 'key-b', secret: 'secret-bbbb' },
+            ],
+        });
+        stops.push(() => s.stop({ timeoutMs: 500 }));
+        const burst = await Promise.allSettled([
+            ...Array.from({ length: 8 }, () => raw(`${s.wsUrl}/app/key-a?protocol=7`)),
+            ...Array.from({ length: 8 }, () => raw(`${s.wsUrl}/app/key-b?protocol=7`)),
+        ]);
+        await sleep(100);
+        const isOpen = (r: (typeof burst)[number]): boolean => r.status === 'fulfilled' && r.value.socketId() !== '' && r.value.ws.readyState === 1;
+        expect(burst.slice(0, 8).filter(isOpen).length).toBeLessThanOrEqual(2);
+        expect(burst.filter(isOpen).length).toBeLessThanOrEqual(3);
+        expect(s.stats().connections).toBeLessThanOrEqual(3);
     });
 
     it('caps channels per socket and members per presence channel', async () => {

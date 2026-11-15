@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import Pusher from 'pusher-js';
-import { WebSocket } from 'ws';
+import { WsClient as WebSocket } from './ws-client.js';
 import type { TestServer } from '../src/test-server.js';
 
 /**

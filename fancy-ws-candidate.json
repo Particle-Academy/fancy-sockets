@@ -1,0 +1,6 @@
+{
+    "package": "@particle-academy/fancy-ws",
+    "version": "0.2.0",
+    "commit": "452be55a12884fe8a031e698335fd5ae70975afe",
+    "why": "fancy-sockets needs fancy-ws >= 0.2.0 (maxFragments, bufferedAmount, pong coalescing, input ends at close), and 0.2.0 is not on npm yet. Until it is, package-lock.json resolves the range to a tarball built from this commit by scripts/fancy-ws-candidate.mjs. REMOVE this file, that script and the `candidates` npm script once registry.npmjs.org serves @particle-academy/fancy-ws 0.2.0, then relock from the registry."
+}

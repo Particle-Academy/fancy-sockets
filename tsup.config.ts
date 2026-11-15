@@ -11,8 +11,8 @@ export default defineConfig([
         clean: true,
         platform: 'node',
         target: 'node22',
-        // `ws` is the one runtime dependency and is never bundled.
-        external: [/^node:/, 'ws'],
+        // fancy-ws is the one runtime dependency and is never bundled.
+        external: [/^node:/, '@particle-academy/fancy-ws'],
         treeshake: true,
     },
     {
@@ -22,7 +22,7 @@ export default defineConfig([
         clean: false,
         platform: 'node',
         target: 'node22',
-        external: [/^node:/, 'ws'],
+        external: [/^node:/, '@particle-academy/fancy-ws'],
         banner: { js: '#!/usr/bin/env node' },
     },
 ]);

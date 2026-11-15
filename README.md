@@ -10,8 +10,9 @@ Linux, with no Docker.
 npm install @particle-academy/fancy-sockets
 ```
 
-Its one runtime dependency is [`ws`](https://github.com/websockets/ws), used for
-WebSocket framing only. The Pusher protocol, channel auth, API signatures,
+Its one runtime dependency is
+[`@particle-academy/fancy-ws`](https://github.com/Particle-Academy/fancy-ws),
+our own zero-dependency RFC 6455 server, used for WebSocket framing only. The Pusher protocol, channel auth, API signatures,
 presence and limits are this package's own code.
 
 ## In tests and CI: one command

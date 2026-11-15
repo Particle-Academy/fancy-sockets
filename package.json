@@ -42,7 +42,8 @@
         "test:watch": "vitest",
         "prepublishOnly": "tsup",
         "smoke": "node scripts/smoke.mjs",
-        "sabotage": "node scripts/sabotage.mjs"
+        "sabotage": "node scripts/sabotage.mjs",
+        "candidates": "node scripts/fancy-ws-candidate.mjs"
     },
     "keywords": [
         "websocket",
@@ -54,9 +55,6 @@
         "realtime",
         "fancy"
     ],
-    "dependencies": {
-        "ws": "^8.23.0"
-    },
     "devDependencies": {
         "@types/node": "^22",
         "laravel-echo": "^2.6.3",
@@ -74,5 +72,8 @@
     "publishConfig": {
         "access": "public"
     },
-    "license": "MIT"
+    "license": "MIT",
+    "dependencies": {
+        "@particle-academy/fancy-ws": ">=0.2.0 <2.0"
+    }
 }
