@@ -42,8 +42,7 @@
         "test:watch": "vitest",
         "prepublishOnly": "tsup",
         "smoke": "node scripts/smoke.mjs",
-        "sabotage": "node scripts/sabotage.mjs",
-        "candidates": "node scripts/fancy-ws-candidate.mjs"
+        "sabotage": "node scripts/sabotage.mjs"
     },
     "keywords": [
         "websocket",

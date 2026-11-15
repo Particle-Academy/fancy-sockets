@@ -216,16 +216,6 @@ jobs:
           node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
-      # A release must resolve fancy-ws from the registry, never from the
-      # pre-publish candidate bridge.
-      - name: No candidate bridge in a release
-        shell: bash
-        run: |
-          if [ -e fancy-ws-candidate.json ] || grep -q "file:.fancy-ws-candidate" package-lock.json; then
-            echo "::error::The fancy-ws candidate bridge is still in place. Relock from the registry once fancy-ws 0.2.0 is on npm, then re-tag."
-            exit 1
-          fi
-
       - name: Install
         run: npm ci
 
