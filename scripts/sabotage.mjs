@@ -49,6 +49,7 @@ const SABOTAGES = [
     ['one channel map shared by every app', 'src/state.ts', [['export class AppState {\n    readonly sockets = new Set<Socket>();\n    readonly channels = new Map<string, Channel>();', 'const SHARED = new Map<string, Channel>();\nexport class AppState {\n    readonly sockets = new Set<Socket>();\n    readonly channels = SHARED;']], 'test/security.test.ts', "never delivers one app's events"],
     ['credential change keeps sockets', 'src/server.ts', [["closeApp(app, CODES.reconnect, 'App credentials changed.');", '']], 'test/runtime.test.ts', 'when its secret changes'],
     ['echo client events to the sender', 'src/connection.ts', [['    const serialised = JSON.stringify(out);\n    for (const other of channel.sockets) {\n        if (other !== socket) {', '    const serialised = JSON.stringify(out);\n    for (const other of channel.sockets) {\n        if (other !== socket || true) {']], 'test/conformance.test.ts', 'stamped with the sender'],
+    ['non-minimal DER INTEGER (leading zeros kept)', 'src/cert.ts', [['while (start < bytes.length - 1 && bytes[start] === 0) {', 'while (false) {']], 'test/cert.test.ts', 'starts with a zero byte'],
     ['ignore the publisher socket_id exclusion', 'src/server.ts', [['if (socket !== except) {', 'if (true) {']], 'test/conformance.test.ts', 'excludes the socket_id'],
 ];
 

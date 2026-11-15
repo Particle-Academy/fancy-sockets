@@ -43,10 +43,21 @@ function oid(dotted: string): Buffer {
     return tlv(0x06, Buffer.from(out));
 }
 
-function integer(bytes: Buffer): Buffer {
-    // Positive: a leading 0x00 when the high bit is set.
-    return tlv(0x02, bytes[0]! & 0x80 ? Buffer.concat([Buffer.from([0]), bytes]) : bytes);
+/**
+ * A non-negative DER INTEGER from big-endian bytes. DER demands the MINIMAL
+ * encoding: redundant leading zero bytes are stripped (OpenSSL refuses them as
+ * "illegal padding"), then one 0x00 is added back only when the high bit is
+ * set, so the value stays positive. Exported for its test only.
+ */
+export function derInteger(bytes: Buffer): Buffer {
+    let start = 0;
+    while (start < bytes.length - 1 && bytes[start] === 0) {
+        start++;
+    }
+    const v = bytes.length === 0 ? Buffer.from([0]) : bytes.subarray(start);
+    return tlv(0x02, v[0]! & 0x80 ? Buffer.concat([Buffer.from([0]), v]) : v);
 }
+const integer = derInteger;
 
 function utcTime(d: Date): Buffer {
     const p = (n: number): string => String(n).padStart(2, '0');
