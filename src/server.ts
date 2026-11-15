@@ -154,8 +154,12 @@ export async function start(options: StartOptions = {}): Promise<SocketsServer> 
         ws.on('error', () => {});
         let code = initialCode;
         let reason = initialReason;
-        // Re-checked here: `verify` and this listener are an await apart, so
-        // several handshakes can pass the cheap pre-checks together.
+        // The per-app quota is enforced HERE, where the socket is counted. The
+        // process-wide cap is re-checked as insurance only: `verify` is
+        // synchronous, so fancy-ws's `await` on it resolves before Node handles
+        // another socket and no two handshakes can interleave today (a sabotage
+        // run confirmed nothing reaches this branch). It matters only if `verify`
+        // ever becomes async, so the sabotage table does not list it.
         if (code === null && app !== undefined) {
             if (sockets.size >= limits.maxConnections) {
                 refuse('connect.capacity');

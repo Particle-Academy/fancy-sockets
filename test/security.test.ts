@@ -455,8 +455,8 @@ describe('floods and caps', () => {
     });
 
     it('holds both connection caps when many handshakes arrive at once', async () => {
-        // The handshake check and the accepted socket are an await apart, so a
-        // burst can pass the pre-check together; the accepted side re-checks.
+        // A burst against both caps at once: the per-app quota lives on the
+        // accepted side now, so this is what proves a burst cannot overshoot it.
         const s = await start({
             port: 0,
             limits: { maxConnections: 3 },
