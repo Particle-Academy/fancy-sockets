@@ -1,72 +1,70 @@
-# AGENTS.md — fancy-sockets
+# Using @particle-academy/fancy-sockets — guide for agents
 
-`CLAUDE.md` is a symlink to this file.
+How an agent installs and uses this package in a consumer app. What the package
+is, is in [README.md](./README.md). Notes for working ON this repo's code are in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
-**This file describes THIS REPO'S CODE and nothing else.** Process rules —
-lifecycle, version policy, publishing procedure, backports — live in the
-envelope's `RULES.md` and must never be copied here.
+## Install
 
-## What this package is
+```bash
+npm install @particle-academy/fancy-sockets
+```
 
-A Pusher-protocol WebSockets server for Node 22+: many apps in one process,
-changed at runtime. `@particle-academy/fancy-ws` (first-party, zero dependencies) does RFC 6455
-framing and nothing else; everything
-protocol-level is ours.
+- **Node:** `>=22`. One runtime dependency, `@particle-academy/fancy-ws`.
+- Clients: pusher-js, Laravel Echo, and Laravel's HTTP broadcaster
+  (pusher-php-server's wire format). Windows, Linux and macOS, no Docker.
 
-## Layout
+## Find it on the Fancy MCP server
 
-| file | what lives there |
-|---|---|
-| `src/protocol.ts` | Pure: signatures, name rules, close codes, the token bucket. No I/O. |
-| `src/config.ts` | App and global settings, defaults, validation. Errors name the field, never a value. |
-| `src/state.ts` | Per-app sockets and channels. Each app owns its maps; nothing is shared. |
-| `src/connection.ts` | One socket's messages: subscribe, unsubscribe, presence, client events. |
-| `src/http-api.ts` | The HTTP API. Authenticates before it parses anything. |
-| `src/server.ts` | The listener, the upgrade path, the idle sweep, runtime apps, graceful stop. |
-| `src/cert.ts` | Self-signed certificates, hand-encoded DER over node:crypto. |
-| `src/cli-main.ts` / `src/cli.ts` | The CLI as a testable function, and its thin bin. |
+The catalog server is `https://ui.particle.academy/mcp` (streamable HTTP, no API
+key; MCP id `fancy-ui`). fancy-sockets is not listed there yet; it appears once
+published. Find it then with `search-backend-packages` (stack `node`).
 
-## Invariants (each has a test, and a sabotage entry that proves it)
+## API essentials
 
-1. **The server stamps the presence sender.** A client event's outgoing frame
-   is built field by field in `connection.ts`; `user_id` comes from
-   `socket.members`, never from the message. Anything else the client put at
-   the top level is dropped.
-2. **Client events are off unless the app turns them on**, and only on a
-   subscribed private or presence channel.
-3. **The HTTP API trusts nothing before the signature.** Route, app, rate,
-   capped body read, then key, version, timestamp, md5 and signature. Only then
-   is the body parsed.
-4. **No app can reach another app's state.** Channels are per `AppState`.
-5. **A limit is refused, never thrown.** Handlers send a protocol error; the
-   message loop still wraps them so a bug costs one socket.
-6. **Presence hashes are null-prototype objects.** A `user_id` of `__proto__`
-   is just an id.
-7. **One sweep timer per server**, not a timer per socket.
+**CLI, for tests and CI:**
+
+```bash
+npx @particle-academy/fancy-sockets --app my-app:my-key:my-secret --port 6001
+```
+
+- The first stdout line is JSON: `{"ready":true,"url":...,"wsUrl":...,"port":...,"apps":[...]}`.
+  Wait for it before pointing the app at the server.
+- `--port 0` picks a free port. `--app id:key:secret:client-events` allows
+  whispers. `--self-signed --ca-out ca.pem` serves `wss` and writes the CA to
+  trust (Node: `NODE_EXTRA_CA_CERTS=ca.pem`). `--tls-cert` / `--tls-key` for
+  your own certificate.
+- A Laravel app points at it with `BROADCAST_CONNECTION=reverb` (or `pusher`)
+  and the matching `REVERB_APP_ID` / `_KEY` / `_SECRET`, `REVERB_HOST`,
+  `REVERB_PORT`, `REVERB_SCHEME`. The README has a full GitHub Actions step.
+
+**From a Node test:** `startTestServer({ app: { clientEvents: true } })` returns
+`{ url, wsUrl, port, app: { id, key, secret }, stop }`; `{ tls: true }` adds
+`ca`.
+
+**Embedded:** `start({ port, host, apps })`, then `addApp`, `updateApp`,
+`removeApp`, `getApp`, `apps`, `stats`, `stop({ timeoutMs })`. Also exported:
+`createSelfSignedCert`, `signChannel`, `signedApiQuery`, `CODES`,
+`DEFAULT_APP_LIMITS`, `DEFAULT_GLOBAL_LIMITS`.
+
+Protocol: clients connect to `/app/{key}?protocol=7`; the HTTP API is
+`POST /apps/{id}/events`, `/batch_events` and the `GET /apps/{id}/channels...`
+routes; `GET /up` is the health check.
 
 ## Traps
 
-- Node checks `headersTimeout` only every `connectionsCheckingInterval` (30 s
-  by default), so the server sets that interval from the limit. And
-  `clientError`'s `end()` only half-closes: a slowloris keeps the socket unless
-  it is destroyed after the status line flushes.
-- Refused connections are accepted and then closed with a Pusher code, because
-  pusher-js decides whether to reconnect from that code. Only the process-wide
-  cap refuses at the handshake (503), where a flood costs a status line.
-
-## Tests
-
-Raw-protocol tests use `test/ws-client.ts`, a small RFC 6455 client of our
-own over node:net/tls. It does not share fancy-ws's frame codec, so the server
-is not checked against itself, and it can send an `Origin`, take a CA and see
-the HTTP status of a refused handshake, which Node's `WebSocket` global cannot.
-
-`npm test` (vitest). `test/php-publisher.test.ts` drives fancy-cowork-php's
-own publisher through `php`; it needs a fancy-cowork-php checkout with
-`vendor/` (`FANCY_COWORK_PHP_DIR`, or `../fancy-cowork-php`). With
-`FANCY_SOCKETS_REQUIRE_PHP=1`, as CI sets it, a missing prerequisite fails.
-
-`node scripts/sabotage.mjs` breaks each guard in turn and checks its test goes
-red. It edits `src/` in place and restores it; run it on a clean tree, never in
-CI. `npm run build && node scripts/smoke.mjs` checks the built artifact and the
-CLI binary.
+- **Client events (whispers) are off by default**, per app, and only allowed on
+  a subscribed private or presence channel, never encrypted.
+- **The default host is `127.0.0.1`.** Use `0.0.0.0` to accept remote clients.
+- **Single process only.** Apps, channels and presence live in memory; there is
+  no cross-process broker in 0.1.
+- **Not in 0.1:** webhooks, `pusher:signin`, cache channels.
+- **`createSelfSignedCert()` is for tests and CI**, not production (valid 7
+  days). In production, terminate TLS at a proxy and forward the `Upgrade`
+  header, or pass `tls: { cert, key }`.
+- **Changing an app's key or secret closes its sockets** (4200, they reconnect);
+  disabling an app closes them with 4003; removing it, 4001.
+- **Every limit has a default** (for example 1000 connections per app, 10
+  events per batch, 50 messages per second per socket) and is refused with the
+  protocol's code, never a crash. The README lists them all.
+- **Pre-1.0:** breaking changes land in MINOR releases.

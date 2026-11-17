@@ -8,6 +8,10 @@ version number is not a stability promise until 1.0; read the entry.
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs:** `AGENTS.md` is now the guide to using this package (install, how to find it on the Fancy MCP catalog server once it is listed, API essentials, traps), and it ships in the package. The contributor notes it held moved to `CONTRIBUTING.md`, and `CLAUDE.md` is now a symlink to it. The README points to the MCP server and to `AGENTS.md`. No code changed; nothing to do.
+
 ## [0.1.0] - 2026-11-15
 
 ### Added

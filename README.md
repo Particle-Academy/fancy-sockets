@@ -15,6 +15,13 @@ Its one runtime dependency is
 our own zero-dependency RFC 6455 server, used for WebSocket framing only. The Pusher protocol, channel auth, API signatures,
 presence and limits are this package's own code.
 
+<!-- fancy-agents-note:start -->
+> **For agents.** This package is not listed on the Fancy MCP catalog server
+> yet. The server, `https://ui.particle.academy/mcp` (streamable HTTP, no API key; MCP id
+> `fancy-ui`), lists the released Fancy packages with install commands and
+> docs. How an agent installs and uses this package is in [AGENTS.md](https://github.com/Particle-Academy/fancy-sockets/blob/main/AGENTS.md).
+<!-- fancy-agents-note:end -->
+
 ## In tests and CI: one command
 
 ```bash
